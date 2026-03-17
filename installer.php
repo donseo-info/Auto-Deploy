@@ -1,10 +1,20 @@
 <?php
 /**
  * Git Auto-Deploy Installer
- * Заливай на хостинг, открывай в браузере и следуй шагам все ок
+ * Заливай на хостинг, открывай в браузере и следуй шагам
  */
 
 session_start();
+
+// Сброс только по явному запросу
+if (isset($_GET['reset'])) {
+    $_SESSION = [];
+}
+
+// Первый заход — инициализируем шаг
+if (!isset($_SESSION['step'])) {
+    $_SESSION['step'] = 1;
+}
 
 define('INSTALLER_VERSION', '1.0');
 define('CONFIG_FILE', __DIR__ . '/.deploy_config.php');
@@ -229,7 +239,7 @@ if ($action === 'check_repo') {
 
     $data = check_repo($dir, $branch);
 
-    $all_ok = array_reduce($data, fn($carry, $item) => $carry && $item['status'] !== 'error', true);
+    $all_ok = !empty($data) && array_reduce($data, fn($carry, $item) => $carry && $item['status'] !== 'error', true);
     if ($all_ok) {
         set_step(3);
     }
@@ -243,7 +253,7 @@ if ($action === 'init_repo') {
     $data = init_repo($dir, $repo, $branch);
     // После инициализации проверяем снова
     $check = check_repo($dir, $branch);
-    $all_ok = array_reduce($check, fn($carry, $item) => $carry && $item['status'] !== 'error', true);
+    $all_ok = !empty($check) && array_reduce($check, fn($carry, $item) => $carry && $item['status'] !== 'error', true);
     if ($all_ok) {
         set_step(3);
     }
@@ -687,61 +697,6 @@ $step = current_step();
   <?php endforeach; ?>
 </div>
 
-<!-- Git Cheatsheet (всегда видна) -->
-<div class="card">
-  <h2><span class="num" style="background:var(--accent2)">↓</span> Git — шпаргалка</h2>
-
-  <?php
-  $cheatsheet = [
-    'Новый проект' => [
-      ['git init',                              'Инициализировать репо в текущей папке'],
-      ['git add .',                             'Добавить все файлы в индекс'],
-      ['git commit -m "Initial commit"',        'Первый коммит'],
-      ['git branch -M main',                    'Переименовать ветку в main'],
-      ['git remote add origin https://…/repo.git', 'Привязать удалённый репозиторий'],
-      ['git push -u origin main',               'Первый пуш + привязка ветки'],
-    ],
-    'Ежедневная работа' => [
-      ['git status',                'Что изменилось'],
-      ['git add .',                 'Добавить все изменения'],
-      ['git add путь/к/файлу',      'Добавить конкретный файл'],
-      ['git commit -m "описание"',  'Зафиксировать изменения'],
-      ['git push',                  'Отправить на GitHub'],
-      ['git pull',                  'Получить обновления'],
-    ],
-    'Ветки' => [
-      ['git branch',                  'Список веток'],
-      ['git checkout -b feature',     'Создать и переключиться на ветку'],
-      ['git checkout main',           'Переключиться на main'],
-      ['git merge feature',           'Слить ветку в текущую'],
-      ['git branch -d feature',       'Удалить ветку'],
-    ],
-    'Remote & история' => [
-      ['git remote -v',                     'Показать привязанные remote'],
-      ['git remote set-url origin https://…', 'Изменить URL remote'],
-      ['git log --oneline',                 'Краткий лог коммитов'],
-      ['git diff',                          'Что изменилось (не добавлено)'],
-      ['git reset --hard HEAD',             'Откатить все несохранённые изменения'],
-      ['git reset --hard origin/main',      'Откатить до состояния на GitHub'],
-    ],
-  ];
-  ?>
-
-  <div class="cheat-tabs">
-    <?php foreach ($cheatsheet as $section => $cmds): ?>
-    <div class="cheat-section">
-      <div class="cheat-title"><?= htmlspecialchars($section) ?></div>
-      <?php foreach ($cmds as [$cmd, $desc]): ?>
-      <div class="cheat-row">
-        <code class="cheat-cmd" onclick="navigator.clipboard?.writeText('<?= htmlspecialchars($cmd, ENT_QUOTES) ?>')" title="Нажми чтобы скопировать"><?= htmlspecialchars($cmd) ?></code>
-        <span class="cheat-desc"><?= htmlspecialchars($desc) ?></span>
-      </div>
-      <?php endforeach; ?>
-    </div>
-    <?php endforeach; ?>
-  </div>
-</div>
-
 <!-- STEP 1: Проверка окружения -->
 <?php if ($step === 1): ?>
 <div class="card">
@@ -925,6 +880,63 @@ $step = current_step();
   </ol>
 </div>
 <?php endif; ?>
+
+<!-- Git Cheatsheet — всегда внизу -->
+<div class="card" style="margin-top:40px;">
+  <h2><span class="num" style="background:var(--accent2)">↓</span> Git — шпаргалка</h2>
+
+  <?php
+  $cheatsheet = [
+    'Новый проект' => [
+      ['git init',                                 'Инициализировать репо в текущей папке'],
+      ['git add .',                                'Добавить все файлы в индекс'],
+      ['git commit -m "Initial commit"',           'Первый коммит'],
+      ['git branch -M main',                       'Переименовать ветку в main'],
+      ['git remote add origin https://…/repo.git', 'Привязать удалённый репозиторий'],
+      ['git push -u origin main',                  'Первый пуш + привязка ветки'],
+    ],
+    'Ежедневная работа' => [
+      ['git status',               'Что изменилось'],
+      ['git add .',                'Добавить все изменения'],
+      ['git add путь/к/файлу',     'Добавить конкретный файл'],
+      ['git commit -m "описание"', 'Зафиксировать изменения'],
+      ['git push',                 'Отправить на GitHub'],
+      ['git pull',                 'Получить обновления'],
+    ],
+    'Ветки' => [
+      ['git branch',              'Список веток'],
+      ['git checkout -b feature', 'Создать и переключиться на ветку'],
+      ['git checkout main',       'Переключиться на main'],
+      ['git merge feature',       'Слить ветку в текущую'],
+      ['git branch -d feature',   'Удалить ветку'],
+    ],
+    'Remote & история' => [
+      ['git remote -v',                      'Показать привязанные remote'],
+      ['git remote set-url origin https://…','Изменить URL remote'],
+      ['git log --oneline',                  'Краткий лог коммитов'],
+      ['git diff',                           'Что изменилось (не добавлено)'],
+      ['git reset --hard HEAD',              'Откатить все несохранённые изменения'],
+      ['git reset --hard origin/main',       'Откатить до состояния на GitHub'],
+    ],
+  ];
+  ?>
+
+  <div class="cheat-tabs">
+    <?php foreach ($cheatsheet as $section => $cmds): ?>
+    <div class="cheat-section">
+      <div class="cheat-title"><?= htmlspecialchars($section) ?></div>
+      <?php foreach ($cmds as [$cmd, $desc]): ?>
+      <div class="cheat-row">
+        <code class="cheat-cmd"
+          onclick="navigator.clipboard?.writeText('<?= htmlspecialchars($cmd, ENT_QUOTES) ?>');this.style.color='#fff';setTimeout(()=>this.style.color='',600)"
+          title="Нажми чтобы скопировать"><?= htmlspecialchars($cmd) ?></code>
+        <span class="cheat-desc"><?= htmlspecialchars($desc) ?></span>
+      </div>
+      <?php endforeach; ?>
+    </div>
+    <?php endforeach; ?>
+  </div>
+</div>
 
 </div>
 </body>
